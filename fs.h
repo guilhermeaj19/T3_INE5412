@@ -2,6 +2,10 @@
 #define FS_H
 
 #include "disk.h"
+#include <vector>
+#include <algorithm>
+#include <cmath>
+
 
 class INE5412_FS
 {
@@ -17,7 +21,7 @@ public:
             int nblocks;
             int ninodeblocks;
             int ninodes;
-    }; 
+    };
 
     class fs_inode {
         public:
@@ -39,7 +43,7 @@ public:
 
     INE5412_FS(Disk *d) {
         disk = d;
-    } 
+    }
 
     void fs_debug();
     int  fs_format();
@@ -54,6 +58,8 @@ public:
 
 private:
     Disk *disk;
+    bool is_mounted{false};
+    std::vector<int> bitmap;
 };
 
 #endif

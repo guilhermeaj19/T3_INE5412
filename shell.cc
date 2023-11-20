@@ -40,17 +40,17 @@ int main( int argc, char *argv[] )
 		cout << " simplefs> ";
 		fflush(stdout);
 
-		if(!fgets(line,sizeof(line),stdin)) 
+		if(!fgets(line,sizeof(line),stdin))
             break;
 
-		if(line[0] == '\n') 
+		if(line[0] == '\n')
             continue;
 
 		line[strlen(line)-1] = 0;
 
 		args = sscanf(line,"%s %s %s", cmd, arg1, arg2);
 
-		if(args == 0) 
+		if(args == 0)
             continue;
 
 		if(!strcmp(cmd, "format")) {
@@ -91,7 +91,7 @@ int main( int argc, char *argv[] )
 			} else {
 				cout << "use: getsize <inumber>\n";
 			}
-			
+
 		} else if(!strcmp(cmd, "create")) {
 			if(args == 1) {
 				inumber = fs.fs_create();
@@ -109,7 +109,7 @@ int main( int argc, char *argv[] )
 				if(fs.fs_delete(inumber)) {
 					cout << "inode " << inumber << " deleted.\n";
 				} else {
-					cout << "delete failed!\n";	
+					cout << "delete failed!\n";
 				}
 			} else {
 				cout << "use: delete <inumber>\n";
