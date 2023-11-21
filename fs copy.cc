@@ -302,47 +302,145 @@ int INE5412_FS::fs_write(int inumber, const char *data, int length,
     }
 
     int num_block = offset/Disk::DISK_BLOCK_SIZE; //Bloco inicial
-    int pos_in_block = offset % Disk::DISK_BLOCK_SIZE - 1; //Posicao inicial no bloco inicial 
-
-    if (not transition(&inode, num_block, pos_in_block)) {
-        return -1;
-    } 
+    int pos_in_block = offset % Disk::DISK_BLOCK_SIZE; //Posicao inicial no bloco inicial 
 
     union fs_block block;
+    int next_block;
     // Verificação inicial para identificar se está num bloco direto ou indireto
-
-
-    int i;
-    int temp = num_block;
-    // Escrita sequencial do inodo no char*data recebido
-    for (i = 0; i < length; i++) {
-        temp = num_block;
-        if (not transition(&inode, num_block, pos_in_block)) {
-            if (temp >= POINTERS_PER_INODE) {
-                union fs_block block2;
-                disk->read(inode.indirect, block2.data);
-                disk->write(block2.pointers[temp-POINTERS_PER_INODE], block.data);
-            } else {
-                disk->write(inode.direct[temp], block.data);
-            }
-            break;
-        };
-        if (num_block != temp) {
-            if (num_block >= POINTERS_PER_INODE) {
+    if (num_block >= POINTERS_PER_INODE) {
+        if (inode.indirect != 0) {
+                num_block++;
+                if (num_block-POINTERS_PER_INODE > INODES_PER_BLOCK) {
+                    return -1;
+                }
                 disk->read(inode.indirect, block.data);
-                disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
+                if (block.pointers[num_block-POINTERS_PER_INODE] != 0) {
+                    next_block = block.pointers[num_block-POINTERS_PER_INODE];
+                    disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
+                } else {
+                    next_block = next_free_block();
+                    if (next_block == 0) {
+                        return -1;
+                    };
+
+                    block.pointers[num_block-POINTERS_PER_INODE] = next_block;
+
+                    bitmap[inode.indirect] = 1;
+                    bitmap[next_block] = 1;
+                    disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
+                }
             } else {
-                disk->read(inode.direct[num_block], block.data);
+                next_block = next_free_block();
+                if (next_block == 0) {
+                    return -1;
+                };
+                inode.indirect = next_block;
+                next_block = next_free_block();
+
+                if (next_block == 0) {
+                    return -1;
+                };
+                disk->read(inode.indirect, block.data);
+                
+                block.pointers[0] = next_block;
+
+                bitmap[inode.indirect] = 1;
+                bitmap[next_block] = 1;
+                disk->read(next_block, block.data);
             }
-            if (temp >= POINTERS_PER_INODE) {
-                union fs_block block2;
-                disk->read(inode.indirect, block2.data);
-                disk->write(block2.pointers[temp-POINTERS_PER_INODE], block.data);
+
+
+        } else {
+            num_block++;
+            if (inode.direct[num_block] != 0) {
+                next_block = inode.direct[num_block];
+                disk->read(inode.direct[num_block], block.data);
             } else {
-                disk->write(inode.direct[temp], block.data);
+                next_block = next_free_block();
+                if (next_block == 0) {
+                    return -1;
+                };
+                bitmap[next_block] = 1;
+                inode.direct[num_block] = next_block;
+                disk->read(next_block, block.data);
             }
         }
+    cout << next_block << endl;
+    int i;
+    // Escrita sequencial do inodo no char*data recebido
+    for (i = 0; i < length; i++) {
+
+        //Semelhante à verificação inicial, apenas alterando o número do próximo bloco
+        if (pos_in_block == Disk::DISK_BLOCK_SIZE) {
+            disk->write(next_block, block.data);
+            if (num_block + 1 >= POINTERS_PER_INODE) {
+                if (inode.indirect != 0) {
+                    num_block++;
+                    if (num_block-POINTERS_PER_INODE > INODES_PER_BLOCK) {
+                        break;
+                    }
+                    disk->read(inode.indirect, block.data);
+                    if (block.pointers[num_block-POINTERS_PER_INODE] != 0) {
+                        next_block = block.pointers[num_block-POINTERS_PER_INODE];
+                        disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
+                    } else {
+                        next_block = next_free_block();
+                        if (next_block == 0) {
+                            break;
+                        };
+
+                        block.pointers[num_block-POINTERS_PER_INODE] = next_block;
+
+                        bitmap[inode.indirect] = 1;
+                        bitmap[next_block] = 1;
+                        disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
+                    }
+                } else {
+                    next_block = next_free_block();
+                    if (next_block == 0) {
+                        break;
+                    };
+                    inode.indirect = next_block;
+                    next_block = next_free_block();
+
+                    if (next_block == 0) {
+                        break;
+                    };
+                    disk->read(inode.indirect, block.data);
+                    
+                    block.pointers[0] = next_block;
+
+                    bitmap[inode.indirect] = 1;
+                    bitmap[next_block] = 1;
+                    disk->read(next_block, block.data);
+                }
+
+
+            } else {
+                num_block++;
+                if (inode.direct[num_block] != 0) {
+                    next_block = inode.direct[num_block];
+                    disk->read(inode.direct[num_block], block.data);
+                } else {
+                    next_block = next_free_block();
+                    if (next_block == 0) {
+                        inode_save(inumber, &inode);
+                        return i;
+                    };
+                    bitmap[next_block] = 1;
+                    inode.direct[num_block] = next_block;
+                    disk->read(next_block, block.data);
+                }
+            }
+            pos_in_block = 0;
+        }
+
         block.data[pos_in_block] = data[i];
+        pos_in_block++;
+
+    }
+    if (next_block != 0) {
+        disk->write(next_block, block.data);
     }
     if (offset + i > inode.size) {
         inode.size = offset + i;
@@ -406,41 +504,40 @@ int INE5412_FS::transition(fs_inode *inode, int &pont, int &block_pos) {
     block_pos++;
     union fs_block block;
     int next_block;
-
     if (block_pos >= Disk::DISK_BLOCK_SIZE) {
         pont++;
         block_pos = 0;
-    }
 
-    //Verifica se excedeu os ponteiros direto
-    if (pont >= POINTERS_PER_INODE) {
-        if (inode->indirect == 0) {
-            next_block = next_free_block();
-            if (next_block == 0) {
-                return 0;
-            } else {
-                inode->indirect = next_block;
+        //Verifica se excedeu os ponteiros direto
+        if (pont >= POINTERS_PER_INODE) {
+            if (inode->indirect == 0) {
+                next_block = next_free_block();
+                if (next_block == 0) {
+                    return 0;
+                } else {
+                    inode->indirect = next_block;
+                }
+                
             }
-            
-        }
-        disk->read(inode->indirect, block.data);
-        if (block.pointers[pont - POINTERS_PER_INODE] == 0) {
-            next_block = next_free_block();
-            if (next_block == 0) {
-                return 0;
-            } else {
-                block.pointers[pont - POINTERS_PER_INODE] = next_block;
-                disk->write(inode->indirect, block.data);
+            disk->read(inode->indirect, block.data);
+            if (block.pointers[pont - POINTERS_PER_INODE] == 0) {
+                next_block = next_free_block();
+                if (next_block == 0) {
+                    return 0;
+                } else {
+                    block.pointers[pont - POINTERS_PER_INODE] = next_block;
+                    disk->write(inode->indirect, block.data);
+                }
+                
             }
-            
-        }
-    } else {
-        if (inode->direct[pont] == 0) {
-            next_block = next_free_block();
-            if (next_block == 0) {
-                return 0;
-            } else {
-                inode->direct[pont] = next_block;
+        } else {
+            if (inode->direct[pont] == 0) {
+                next_block = next_free_block();
+                if (next_block == 0) {
+                    return 0;
+                } else {
+                    inode->direct[pont] = next_block;
+                }
             }
         }
     }

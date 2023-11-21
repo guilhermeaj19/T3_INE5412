@@ -60,6 +60,11 @@ private:
     Disk *disk;
     bool is_mounted{false};
     std::vector<int> bitmap;
+
+    int inode_load(int inumber, fs_inode *inode);
+    int inode_save(int inumber, fs_inode *inode);
+    int next_free_block();
+    int transition(fs_inode *inode, int &pont, int &block_pos);
 };
 
 #endif
