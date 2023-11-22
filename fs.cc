@@ -163,6 +163,10 @@ int INE5412_FS::fs_create() {
             if (not block.inode[inode].isvalid) {
                 block.inode[inode].isvalid = 1;
                 block.inode[inode].size = 0;
+                for (int drct_point = 0; drct_point < POINTERS_PER_INODE; drct_point++) {
+                    block.inode[inode].direct[drct_point] = 0;
+                }
+                block.inode[inode].indirect = 0;
                 disk->write(inode_block + 1, block.data);
                 return inode_block * INODES_PER_BLOCK + inode + 1;
             }
@@ -287,25 +291,25 @@ int INE5412_FS::fs_read(int inumber, char *data, int length, int offset) {
 
 int INE5412_FS::fs_write(int inumber, const char *data, int length,
                          int offset) {
-    if (not is_mounted) return -1;
+    if (not is_mounted) return 0;
 
     fs_inode inode;
     
     // Se não conseguiu carregar o inode, não é possível ler o arquivo
     if (not inode_load(inumber, &inode)) {
-        return -1;
+        return 0;
     }
 
     // Se o inode não é válido, não há arquivo a ser lido
     if (not inode.isvalid) {
-        return -1;
+        return 0;
     }
 
     int num_block = offset/Disk::DISK_BLOCK_SIZE; //Bloco inicial
     int pos_in_block = offset % Disk::DISK_BLOCK_SIZE - 1; //Posicao inicial no bloco inicial 
 
     if (not transition(&inode, num_block, pos_in_block)) {
-        return -1;
+        return 0;
     } 
 
     union fs_block block;
@@ -420,6 +424,11 @@ int INE5412_FS::transition(fs_inode *inode, int &pont, int &block_pos) {
                 return 0;
             } else {
                 inode->indirect = next_block;
+                disk->read(inode->indirect, block.data);
+                for (int pointer = 0; pointer < POINTERS_PER_BLOCK; pointer++) {
+                    block.pointers[pointer] = 0;
+                }
+                disk->write(inode->indirect, block.data);
             }
             
         }
@@ -444,5 +453,5 @@ int INE5412_FS::transition(fs_inode *inode, int &pont, int &block_pos) {
             }
         }
     }
-    return 1;
+    return next_block;
 }
