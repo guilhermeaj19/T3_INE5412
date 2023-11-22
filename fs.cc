@@ -332,18 +332,19 @@ int INE5412_FS::fs_write(int inumber, const char *data, int length,
             break;
         };
         if (num_block != temp) {
-            if (num_block >= POINTERS_PER_INODE) {
-                disk->read(inode.indirect, block.data);
-                disk->read(block.pointers[num_block-POINTERS_PER_INODE], block.data);
-            } else {
-                disk->read(inode.direct[num_block], block.data);
-            }
             if (temp >= POINTERS_PER_INODE) {
                 union fs_block block2;
                 disk->read(inode.indirect, block2.data);
                 disk->write(block2.pointers[temp-POINTERS_PER_INODE], block.data);
             } else {
                 disk->write(inode.direct[temp], block.data);
+            }
+            if (num_block >= POINTERS_PER_INODE) {
+                union fs_block block2;
+                disk->read(inode.indirect, block2.data);
+                disk->read(block2.pointers[num_block-POINTERS_PER_INODE], block.data);
+            } else {
+                disk->read(inode.direct[num_block], block.data);
             }
         }
         block.data[pos_in_block] = data[i];
@@ -453,5 +454,5 @@ int INE5412_FS::transition(fs_inode *inode, int &pont, int &block_pos) {
             }
         }
     }
-    return next_block;
+    return 1;
 }
