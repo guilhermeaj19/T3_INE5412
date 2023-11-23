@@ -40,6 +40,8 @@ int INE5412_FS::fs_format() {
 void INE5412_FS::fs_debug() {
     union fs_block block;
 
+    if (not is_mounted) return;
+
     disk->read(0, block.data);
 
     cout << "superblock:\n";
@@ -89,10 +91,6 @@ void INE5412_FS::fs_debug() {
                 }
             }
         }
-    }
-
-    for (int i = 0; i < bitmap.size(); i++) {
-        cout << "Block " << i << ": " << bitmap[i] << endl;
     }
 }
 
@@ -331,6 +329,8 @@ int INE5412_FS::fs_write(int inumber, const char *data, int length, int offset) 
 
         // Se não conseguiu alocar um novo bloco, para de copiar
         if (not transition(&inode, num_block, pos_in_block)) {
+            i++;
+            block.data[pos_in_block] = data[i];
             inode_write_block(&inode, temp, block);
             break;
         };
