@@ -65,6 +65,8 @@ private:
     int inode_save(int inumber, fs_inode *inode);
     int next_free_block();
     int transition(fs_inode *inode, int &pont, int &block_pos);
+    void inode_write_block(fs_inode *inode, int &pont, union fs_block &block);
+    void inode_read_block(fs_inode *inode, int&pont, union fs_block &block);
 };
 
 #endif
