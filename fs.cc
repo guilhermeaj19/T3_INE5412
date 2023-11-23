@@ -310,6 +310,7 @@ int INE5412_FS::fs_write(int inumber, const char *data, int length, int offset) 
     int pos_in_block = Disk::DISK_BLOCK_SIZE;
 
     // Em transition será tualizado para o bloco inicial e verificará a necessidade de alocação
+    // Se não conseguiu alocar, nem começa copiar
     if (not transition(&inode, num_block, pos_in_block)) {
         return 0;
     }
@@ -328,7 +329,7 @@ int INE5412_FS::fs_write(int inumber, const char *data, int length, int offset) 
         block.data[pos_in_block] = data[i]; // Atualiza o valor no bloco de dados
         temp = num_block; // Salva o antigo num do bloco relativo ao inodo
 
-        // Se não
+        // Se não conseguiu alocar um novo bloco, para de copiar
         if (not transition(&inode, num_block, pos_in_block)) {
             inode_write_block(&inode, temp, block);
             break;
